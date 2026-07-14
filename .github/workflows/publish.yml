@@ -47,4 +47,4 @@ jobs:
         with:
           name: npm-package
           path: package-artifact
-      - run: npm publish package-artifact/*.tgz --access public --ignore-scripts
+      - run: npm publish ./package-artifact/*.tgz --access public --ignore-scripts
