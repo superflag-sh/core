@@ -91,10 +91,16 @@ async function registryMetadata(requestedVersion) {
   const attempts = requestedVersion ? 12 : 1;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      const metadata = npmJson(
+      const viewed = npmJson(
         ["view", packageName + "@" + (requestedVersion || "latest")],
         root,
       );
+      const response = await fetch(
+        registry + packageName.replace("/", "%2f") + "/" + viewed.version,
+      );
+      if (!response.ok)
+        throw new Error("Registry metadata returned HTTP " + response.status);
+      const metadata = await response.json();
       if (
         requestedVersion &&
         (!metadata.dist?.attestations?.url ||
