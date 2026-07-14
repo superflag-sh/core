@@ -95,8 +95,12 @@ async function registryMetadata(requestedVersion) {
         ["view", packageName + "@" + (requestedVersion || "latest")],
         root,
       );
-      if (requestedVersion && !metadata.dist?.attestations?.url)
-        throw new Error("npm provenance is not available yet");
+      if (
+        requestedVersion &&
+        (!metadata.dist?.attestations?.url ||
+          metadata._npmUser?.trustedPublisher?.id !== "github")
+      )
+        throw new Error("npm trusted-publisher metadata is not available yet");
       return metadata;
     } catch (error) {
       if (attempt === attempts) throw error;
