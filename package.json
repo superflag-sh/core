@@ -1,0 +1,94 @@
+{
+  "name": "@superflag-sh/core",
+  "version": "0.1.0",
+  "description": "Portable, deterministic feature flag evaluation for Superflag",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js",
+      "default": "./dist/react.js"
+    },
+    "./react-native": {
+      "types": "./dist/react-native.d.ts",
+      "import": "./dist/react-native.js",
+      "default": "./dist/react-native.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js",
+      "default": "./dist/node.js"
+    },
+    "./cli": {
+      "types": "./dist/cli.d.ts",
+      "import": "./dist/cli.js",
+      "default": "./dist/cli.js"
+    },
+    "./openfeature": {
+      "types": "./dist/openfeature.d.ts",
+      "import": "./dist/openfeature.js",
+      "default": "./dist/openfeature.js"
+    },
+    "./legacy": {
+      "types": "./dist/legacy.d.ts",
+      "import": "./dist/legacy.js",
+      "default": "./dist/legacy.js"
+    },
+    "./conformance": {
+      "types": "./dist/conformance.d.ts",
+      "import": "./dist/conformance.js",
+      "default": "./dist/conformance.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/superflag-sh/core.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "feature-flags",
+    "targeting",
+    "openfeature",
+    "superflag"
+  ],
+  "author": "Superflag",
+  "license": "MIT",
+  "peerDependencies": {
+    "@openfeature/server-sdk": ">=1"
+  },
+  "peerDependenciesMeta": {
+    "@openfeature/server-sdk": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.13",
+    "@types/bun": "^1.3.6",
+    "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "build": "rm -rf dist && bun run scripts/build.ts && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "lint": "biome check .",
+    "smoke:package": "node -e \"Promise.all(['@superflag-sh/core','@superflag-sh/core/react','@superflag-sh/core/react-native','@superflag-sh/core/node','@superflag-sh/core/cli','@superflag-sh/core/openfeature','@superflag-sh/core/legacy','@superflag-sh/core/conformance'].map(x => import(x)))\"",
+    "release:check": "bun run test && bun run typecheck && bun run lint && bun run build && bun run smoke:package",
+    "prepack": "bun run build"
+  }
+}
