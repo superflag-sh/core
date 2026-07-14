@@ -1,7 +1,11 @@
-import { type GenerateTypesOptions, generateTypes } from "./codegen";
-import { createEvaluator } from "./evaluator";
-import { parseConfig, validateConfig } from "./schema";
-import type { EvaluationContext, EvaluationOptions, FlagValue } from "./types";
+import { type GenerateTypesOptions, generateTypes } from "./codegen.js";
+import { createEvaluator } from "./evaluator.js";
+import { parseConfig, validateConfig } from "./schema.js";
+import type {
+  EvaluationContext,
+  EvaluationOptions,
+  FlagValue,
+} from "./types.js";
 
 export function validateConfigText(text: string) {
   try {

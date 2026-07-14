@@ -1,4 +1,4 @@
-import { parseConfig } from "./schema";
+import { parseConfig } from "./schema.js";
 import type {
   ConfigSource,
   Flag,
@@ -8,7 +8,7 @@ import type {
   FlagValueType,
   JsonValue,
   Variation,
-} from "./types";
+} from "./types.js";
 
 export type LegacyFlagType = "bool" | "string" | "number" | "json";
 

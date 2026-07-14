@@ -1,5 +1,5 @@
-import { parseConfig } from "./schema";
-import type { FlagConfig, JsonValue } from "./types";
+import { parseConfig } from "./schema.js";
+import type { FlagConfig, JsonValue } from "./types.js";
 
 export interface GenerateTypesOptions {
   interfaceName?: string;

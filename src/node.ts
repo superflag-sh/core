@@ -1,15 +1,19 @@
-import { createEvaluator } from "./evaluator";
-import { createOpenFeatureProvider } from "./openfeature";
-import { createPlatformClient } from "./platform";
+import { createEvaluator } from "./evaluator.js";
+import { createOpenFeatureProvider } from "./openfeature.js";
+import { createPlatformClient } from "./platform.js";
 import {
   createClientSnapshot,
   projectClientConfig,
   sanitizeContext,
-} from "./privacy";
-import { parseConfig, validateConfig } from "./schema";
+} from "./privacy.js";
+import { parseConfig, validateConfig } from "./schema.js";
 
 export const createNodeClient = createPlatformClient;
-export type { EvaluationContext, EvaluationDetails, FlagConfig } from "./types";
+export type {
+  EvaluationContext,
+  EvaluationDetails,
+  FlagConfig,
+} from "./types.js";
 export {
   createClientSnapshot,
   createEvaluator,

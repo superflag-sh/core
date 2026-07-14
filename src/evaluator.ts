@@ -1,4 +1,4 @@
-import { parseConfig } from "./schema";
+import { parseConfig } from "./schema.js";
 import type {
   AttributeValue,
   EvaluationContext,
@@ -20,7 +20,7 @@ import type {
   Segment,
   Serve,
   TargetingExpression,
-} from "./types";
+} from "./types.js";
 
 const BUCKET_SIZE = 100_000;
 

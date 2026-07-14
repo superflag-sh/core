@@ -1,5 +1,5 @@
-import { createEvaluator } from "./evaluator";
-import { parseConfig } from "./schema";
+import { createEvaluator } from "./evaluator.js";
+import { parseConfig } from "./schema.js";
 import type {
   AttributeValue,
   EvaluationContext,
@@ -14,7 +14,7 @@ import type {
   Serve,
   TargetingExpression,
   TargetingRule,
-} from "./types";
+} from "./types.js";
 
 export interface ClientProjectionOptions {
   /** Config metadata is omitted by default because it can contain internal data. */

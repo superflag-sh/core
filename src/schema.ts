@@ -10,7 +10,7 @@ import {
   type TargetingExpression,
   type ValidationIssue,
   type ValidationResult,
-} from "./types";
+} from "./types.js";
 
 const operators = new Set<MatchOperator>([
   "eq",

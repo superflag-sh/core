@@ -1,10 +1,10 @@
-import { createEvaluator } from "./evaluator";
+import { createEvaluator } from "./evaluator.js";
 import type {
   EvaluationContext,
   EvaluationReason,
   FlagConfig,
   FlagValue,
-} from "./types";
+} from "./types.js";
 
 export interface ConformanceVector {
   name: string;

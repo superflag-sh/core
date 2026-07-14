@@ -1,6 +1,6 @@
 {
   "name": "@superflag-sh/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Portable, deterministic feature flag evaluation for Superflag",
   "type": "module",
   "sideEffects": false,
@@ -87,7 +87,8 @@
     "test": "bun test",
     "test:watch": "bun test --watch",
     "lint": "biome check .",
-    "smoke:package": "node -e \"Promise.all(['@superflag-sh/core','@superflag-sh/core/react','@superflag-sh/core/react-native','@superflag-sh/core/node','@superflag-sh/core/cli','@superflag-sh/core/openfeature','@superflag-sh/core/legacy','@superflag-sh/core/conformance'].map(x => import(x)))\"",
+    "smoke:package": "node scripts/smoke-package.mjs",
+    "smoke:registry": "node scripts/smoke-registry.mjs",
     "release:check": "bun run test && bun run typecheck && bun run lint && bun run build && bun run smoke:package",
     "prepack": "bun run build"
   }

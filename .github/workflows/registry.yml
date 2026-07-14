@@ -1,0 +1,54 @@
+name: Registry consumer
+
+on:
+  workflow_run:
+    workflows: ["Publish to npm"]
+    types: [completed]
+  schedule:
+    - cron: "31 15 * * 1"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact @superflag-sh/core version (defaults to latest)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  node-consumer:
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'release')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout the commit that published the package
+        if: github.event_name == 'workflow_run'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Checkout the default branch
+        if: github.event_name != 'workflow_run'
+        uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm install --global npm@11.6.3
+      - name: Resolve the exact version under test
+        id: package
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            echo "version=$(node -p 'require(\"./package.json\").version')" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Test the published package from an isolated Node app
+        run: npm run smoke:registry
+        env:
+          SUPERFLAG_PACKAGE_VERSION: ${{ steps.package.outputs.version }}

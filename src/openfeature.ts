@@ -1,10 +1,10 @@
-import { createEvaluator } from "./evaluator";
+import { createEvaluator } from "./evaluator.js";
 import type {
   EvaluationContext,
   FlagConfig,
   FlagValue,
   JsonValue,
-} from "./types";
+} from "./types.js";
 
 export interface OpenFeatureEvaluationContext {
   targetingKey?: string;

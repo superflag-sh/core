@@ -6,7 +6,7 @@ import type {
   FlagConfig,
   FlagKey,
   FlagValueFor,
-} from "./types";
+} from "./types.js";
 
 export interface TypedClient<C extends FlagConfig> {
   get<K extends FlagKey<C>>(

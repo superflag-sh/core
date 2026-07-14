@@ -1,6 +1,6 @@
-import { createTypedClient } from "./client";
-import { createEvaluator } from "./evaluator";
-import type { EvaluationContext, FlagConfig } from "./types";
+import { createTypedClient } from "./client.js";
+import { createEvaluator } from "./evaluator.js";
+import type { EvaluationContext, FlagConfig } from "./types.js";
 
 export function createPlatformClient<const C extends FlagConfig>(
   config: C,
