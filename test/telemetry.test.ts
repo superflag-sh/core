@@ -504,7 +504,7 @@ describe("telemetry adapter", () => {
     );
   });
 
-  test("numeric tracking is feature scoped and attribute allow-listed", () => {
+  test("outcome tracking supports binary conversions, finite values, and bounded attributes", () => {
     const events: FeatureEvent[] = [];
     const adapter = createTelemetryAdapter({
       onEvent: (event) => events.push(event),
@@ -531,11 +531,24 @@ describe("telemetry adapter", () => {
       allowedAttributes: ["authorityClass"],
     };
     expect(adapter.trackNumeric(input).status).toBe("callback_only");
+    const { value: _numericValue, ...binaryInput } = input;
+    expect(
+      adapter.track({
+        ...binaryInput,
+        id: "evt-binary-outcome",
+      }),
+    ).toMatchObject({ status: "callback_only" });
     expect(events[0]).toMatchObject({
       kind: "outcome",
       flagKey: "checkout",
       metric: { key: "checkout-value", revision: 3 },
       value: 42.5,
+      dimensions: { authorityClass: "server" },
+    });
+    expect(events[1]).toMatchObject({
+      kind: "outcome",
+      metric: { key: "checkout-value", revision: 3 },
+      value: true,
       dimensions: { authorityClass: "server" },
     });
     expect(() =>
@@ -546,6 +559,9 @@ describe("telemetry adapter", () => {
     ).toThrow("allow-list");
     expect(() =>
       createNumericOutcomeEvent({ ...input, value: Number.POSITIVE_INFINITY }),
+    ).toThrow("finite");
+    expect(() =>
+      adapter.track({ ...input, id: "evt-invalid-number", value: Number.NaN }),
     ).toThrow("finite");
   });
 

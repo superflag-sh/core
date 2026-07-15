@@ -149,7 +149,7 @@ export interface TelemetrySnapshot {
   nextFlushAt?: number;
 }
 
-export interface NumericFeatureOutcomeInput {
+export interface FeatureOutcomeInput {
   id: string;
   source: ConfigSource;
   flagKey: string;
@@ -161,16 +161,24 @@ export interface NumericFeatureOutcomeInput {
   subject: PseudonymousSubject;
   exposureId: string;
   metric: { key: string; revision: number };
-  value: number;
+  /** Omit for a binary conversion. Omitted values are encoded as `true`. */
+  value?: number;
   experiment?: ExperimentEventReference;
   /** Bounded attributes copied only when their keys are explicitly allowed. */
   attributes?: Readonly<Record<string, FeatureEventDimension>>;
   allowedAttributes?: readonly string[];
 }
 
+/** @deprecated Use FeatureOutcomeInput. Retained for source compatibility. */
+export type NumericFeatureOutcomeInput = Omit<FeatureOutcomeInput, "value"> & {
+  value: number;
+};
+
 export interface TelemetryAdapter {
   enqueue(event: FeatureEvent): TelemetryEnqueueResult;
-  /** Explicit, feature-scoped numeric outcome helper; not a generic event API. */
+  /** Records a feature-scoped binary conversion or finite numeric outcome. */
+  track(input: FeatureOutcomeInput): TelemetryEnqueueResult;
+  /** @deprecated Use track. */
   trackNumeric(input: NumericFeatureOutcomeInput): TelemetryEnqueueResult;
   flush(): Promise<TelemetryFlushResult>;
   /**
@@ -224,11 +232,9 @@ const nonNegative = (value: number | undefined, fallback: number): number =>
     ? value
     : fallback;
 
-export function createNumericOutcomeEvent(
-  input: NumericFeatureOutcomeInput,
-): OutcomeEvent {
-  if (!Number.isFinite(input.value))
-    throw new TypeError("Numeric feature outcome value must be finite");
+export function createOutcomeEvent(input: FeatureOutcomeInput): OutcomeEvent {
+  if (input.value !== undefined && !Number.isFinite(input.value))
+    throw new TypeError("Feature outcome value must be finite when provided");
   return parseFeatureEvent(
     {
       schemaVersion: FEATURE_EVENT_SCHEMA_VERSION,
@@ -244,7 +250,7 @@ export function createNumericOutcomeEvent(
       subject: input.subject,
       exposureId: input.exposureId,
       metric: input.metric,
-      value: input.value,
+      value: input.value ?? true,
       ...(input.experiment ? { experiment: input.experiment } : {}),
       ...(input.attributes ? { dimensions: input.attributes } : {}),
     },
@@ -252,6 +258,13 @@ export function createNumericOutcomeEvent(
       ? { allowedDimensions: input.allowedAttributes }
       : undefined,
   ) as OutcomeEvent;
+}
+
+/** @deprecated Use createOutcomeEvent. */
+export function createNumericOutcomeEvent(
+  input: NumericFeatureOutcomeInput,
+): OutcomeEvent {
+  return createOutcomeEvent(input);
 }
 
 /**
@@ -922,9 +935,15 @@ export function createTelemetryAdapter(
 
   return {
     enqueue,
+    track(input) {
+      return enqueueWithDimensions(
+        createOutcomeEvent(input),
+        input.allowedAttributes,
+      );
+    },
     trackNumeric(input) {
       return enqueueWithDimensions(
-        createNumericOutcomeEvent(input),
+        createOutcomeEvent(input),
         input.allowedAttributes,
       );
     },
