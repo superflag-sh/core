@@ -3,6 +3,7 @@ export { generateTypes } from "./codegen.js";
 export { bucket, createEvaluator, stableHash } from "./evaluator.js";
 export * from "./events.js";
 export * from "./experiments.js";
+export * from "./inspection.js";
 export type {
   LegacyDefinitionOverrides,
   LegacyFlagType,

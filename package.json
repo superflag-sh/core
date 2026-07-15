@@ -1,6 +1,6 @@
 {
   "name": "@superflag-sh/core",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Portable, deterministic feature flag evaluation for Superflag",
   "type": "module",
   "sideEffects": false,
@@ -56,6 +56,11 @@
       "types": "./dist/experiments.d.ts",
       "import": "./dist/experiments.js",
       "default": "./dist/experiments.js"
+    },
+    "./inspection": {
+      "types": "./dist/inspection.d.ts",
+      "import": "./dist/inspection.js",
+      "default": "./dist/inspection.js"
     },
     "./telemetry": {
       "types": "./dist/telemetry.d.ts",

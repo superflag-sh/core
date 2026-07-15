@@ -9,6 +9,7 @@ const entrypoints = [
   "conformance",
   "events",
   "experiments",
+  "inspection",
   "telemetry",
 ] as const;
 

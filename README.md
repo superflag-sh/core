@@ -50,6 +50,31 @@ const result = flags.boolean(
 
 Typed methods (`boolean`, `string`, `number`, and `object`) always return the caller's fallback on missing flags, invalid contexts, evaluation errors, or type mismatches. Inspect `errorCode` and `errorMessage` in the returned details; ordinary targeting misses are not errors.
 
+## Deterministic inspection and simulation
+
+`@superflag-sh/core/inspection` exposes pure diagnostics built on the same evaluator and serve-selection semantics:
+
+```ts
+import {
+  explainEvaluation,
+  simulateProposedConfig,
+  testSegmentMembership,
+} from "@superflag-sh/core/inspection";
+
+const explanation = explainEvaluation(
+  config,
+  "new-checkout",
+  { targetingKey: "user_123", attributes: { plan: "pro" } },
+  false,
+  "2030-01-01T00:00:00.000Z",
+);
+
+// eligibility -> assignment -> evaluation -> exposure-candidate
+console.log(explanation.stages);
+```
+
+Inspection always requires an explicit valid time. Rollout explanations include the 100,000-unit bucket, allocation ranges, bucket attribute name, and salt, but never copy the raw targeting key or attribute value into the result. `testSegmentMembership` delegates to the evaluator's expression engine. `dependencyPaths` and `impactPaths` return deterministic flag/segment graph paths. `simulateProposedConfig` evaluates current and proposed documents through the same explanation path, so its `after` details have direct evaluator parity. An exposure candidate is diagnostic provenance only; it does not emit telemetry or imply that the application actually displayed a feature.
+
 ## Privacy and client delivery
 
 Flags and segments default to `visibility: "server"`. `projectClientConfig` includes only entries explicitly marked `"client"`, omits arbitrary metadata by default, and validation rejects a client flag that depends on a server-only flag or segment. Because a client-evaluated bundle necessarily reveals its targeting rules and comparison values, use `createClientSnapshot` when those rules are sensitive: it sends evaluated values and safe provenance details without rule definitions, segments, or user attributes. A matching `ruleId` is included as an opaque reference for diagnostics. `sanitizeContext` copies only an explicit attribute allow-list.

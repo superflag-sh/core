@@ -22,7 +22,22 @@ import type {
   TargetingExpression,
 } from "./types.js";
 
-const BUCKET_SIZE = 100_000;
+export const BUCKET_SIZE = 100_000;
+
+export interface ServeSelection {
+  variation?: string;
+  bucket?: {
+    value: number;
+    size: typeof BUCKET_SIZE;
+    bucketBy: string;
+    salt: string;
+    allocations: readonly {
+      variation: string;
+      start: number;
+      end: number;
+    }[];
+  };
+}
 
 /** Stable FNV-1a hash. Kept explicit so every SDK can reproduce the same buckets. */
 export function stableHash(value: string): number {
@@ -245,6 +260,46 @@ function valueKind(
   return "object";
 }
 
+/** Shared serve-selection primitive used by evaluation and deterministic inspection. */
+export function selectServe(
+  serve: Serve,
+  flagKey: string,
+  context: EvaluationContext,
+  now: Date,
+): ServeSelection {
+  if ("variation" in serve) return { variation: serve.variation };
+  const rollout =
+    "rollout" in serve ? serve.rollout : interpolateRollout(serve, now);
+  const bucketBy = rollout.bucketBy ?? "targetingKey";
+  const bucketValue = readAttribute(context, bucketBy);
+  if (
+    bucketValue === undefined ||
+    (typeof bucketValue !== "string" && typeof bucketValue !== "number")
+  )
+    return {};
+  const salt = rollout.salt ?? "";
+  const allocationBucket = bucket(`${flagKey}:${salt}:${String(bucketValue)}`);
+  let cursor = 0;
+  const allocations = rollout.variations.map((allocation) => {
+    const start = cursor;
+    cursor += allocation.weight;
+    return { variation: allocation.variation, start, end: cursor };
+  });
+  const variation = allocations.find(
+    (allocation) => allocationBucket < allocation.end,
+  )?.variation;
+  return {
+    ...(variation !== undefined ? { variation } : {}),
+    bucket: {
+      value: allocationBucket,
+      size: BUCKET_SIZE,
+      bucketBy,
+      salt,
+      allocations,
+    },
+  };
+}
+
 interface InternalResult {
   variation?: string | undefined;
   reason: EvaluationReason;
@@ -322,35 +377,6 @@ export function createEvaluator<const C extends FlagConfig>(
     );
   }
 
-  function chooseServe(
-    serve: Serve,
-    flagKey: string,
-    context: EvaluationContext,
-    now: Date,
-  ): string | undefined {
-    if ("variation" in serve) return serve.variation;
-    const rollout =
-      "rollout" in serve ? serve.rollout : interpolateRollout(serve, now);
-    const bucketValue = readAttribute(
-      context,
-      rollout.bucketBy ?? "targetingKey",
-    );
-    if (
-      bucketValue === undefined ||
-      (typeof bucketValue !== "string" && typeof bucketValue !== "number")
-    )
-      return undefined;
-    const allocationBucket = bucket(
-      `${flagKey}:${rollout.salt ?? ""}:${String(bucketValue)}`,
-    );
-    let cursor = 0;
-    for (const allocation of rollout.variations) {
-      cursor += allocation.weight;
-      if (allocationBucket < cursor) return allocation.variation;
-    }
-    return undefined;
-  }
-
   function offResult(
     flag: Flag,
     reason: EvaluationReason,
@@ -424,7 +450,12 @@ export function createEvaluator<const C extends FlagConfig>(
       const segments = new Set<string>();
       if (!expressionMatch(rule.when, context, now, new Set(), segments))
         continue;
-      const variation = chooseServe(rule.serve, flagKey, context, now);
+      const variation = selectServe(
+        rule.serve,
+        flagKey,
+        context,
+        now,
+      ).variation;
       if (variation !== undefined)
         return {
           variation,
@@ -437,7 +468,12 @@ export function createEvaluator<const C extends FlagConfig>(
           prerequisites: prerequisiteEvaluations,
         };
     }
-    const variation = chooseServe(flag.fallthrough, flagKey, context, now);
+    const variation = selectServe(
+      flag.fallthrough,
+      flagKey,
+      context,
+      now,
+    ).variation;
     return {
       variation,
       reason:
