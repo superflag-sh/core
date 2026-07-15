@@ -25,6 +25,9 @@ const entrypoints = [
   "@superflag-sh/core/openfeature",
   "@superflag-sh/core/legacy",
   "@superflag-sh/core/conformance",
+  "@superflag-sh/core/events",
+  "@superflag-sh/core/experiments",
+  "@superflag-sh/core/telemetry",
 ];
 
 function run(command, args, cwd = root) {

@@ -1,6 +1,6 @@
 {
   "name": "@superflag-sh/core",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Portable, deterministic feature flag evaluation for Superflag",
   "type": "module",
   "sideEffects": false,
@@ -46,6 +46,21 @@
       "types": "./dist/conformance.d.ts",
       "import": "./dist/conformance.js",
       "default": "./dist/conformance.js"
+    },
+    "./events": {
+      "types": "./dist/events.d.ts",
+      "import": "./dist/events.js",
+      "default": "./dist/events.js"
+    },
+    "./experiments": {
+      "types": "./dist/experiments.d.ts",
+      "import": "./dist/experiments.js",
+      "default": "./dist/experiments.js"
+    },
+    "./telemetry": {
+      "types": "./dist/telemetry.d.ts",
+      "import": "./dist/telemetry.js",
+      "default": "./dist/telemetry.js"
     },
     "./package.json": "./package.json"
   },

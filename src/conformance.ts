@@ -1,4 +1,10 @@
 import { createEvaluator } from "./evaluator.js";
+import {
+  type FeatureEvent,
+  type FeatureEventParserOptions,
+  parseFeatureEvent,
+} from "./events.js";
+import { assignExperiment, type ExperimentIteration } from "./experiments.js";
 import type {
   EvaluationContext,
   EvaluationReason,
@@ -229,6 +235,197 @@ export interface ConformanceResult {
   name: string;
   pass: boolean;
   differences: readonly string[];
+}
+
+export const experimentConformanceConfig = {
+  schemaVersion: 1,
+  source: { app: "conformance", environment: "experiment" },
+  configVersion: 11,
+  flags: {
+    checkout: {
+      type: "string",
+      description: "Canonical A/B assignment flag.",
+      tags: ["conformance", "experiment"],
+      owner: "sdk-platform",
+      lifecycle: "active",
+      enabled: true,
+      variations: {
+        control: { value: "control" },
+        treatment: { value: "treatment" },
+      },
+      offVariation: "control",
+      fallthrough: { variation: "control" },
+    },
+  },
+} as const satisfies FlagConfig;
+
+export const experimentConformanceIteration = {
+  schemaVersion: 1,
+  id: "checkout-iteration-1",
+  experimentId: "checkout-experiment",
+  number: 1,
+  source: experimentConformanceConfig.source,
+  flagKey: "checkout",
+  configVersion: experimentConformanceConfig.configVersion,
+  variations: ["control", "treatment"],
+  allocation: [
+    { variation: "control", weight: 50_000 },
+    { variation: "treatment", weight: 50_000 },
+  ],
+  salt: "exp-v1",
+  assignmentUnit: { kind: "targetingKey" },
+  audience: { kind: "all", id: "all", version: 1 },
+  primaryMetric: { key: "checkout-completed", revision: 1 },
+  secondaryMetrics: [],
+  guardrailMetrics: [{ key: "checkout-error", revision: 2 }],
+  startedAt: "2030-01-01T00:00:00.000Z",
+} as const satisfies ExperimentIteration;
+
+export const experimentConformanceVectors = [
+  { targetingKey: "user-1", expectedVariation: "control" },
+  { targetingKey: "user-2", expectedVariation: "treatment" },
+  { targetingKey: "user-5", expectedVariation: "control" },
+] as const;
+
+export function runExperimentConformanceVectors(): readonly ConformanceResult[] {
+  return experimentConformanceVectors.map((vector) => {
+    const assignment = assignExperiment(
+      experimentConformanceIteration,
+      experimentConformanceConfig,
+      { targetingKey: vector.targetingKey },
+    );
+    const differences =
+      assignment.variation === vector.expectedVariation
+        ? []
+        : [
+            `variation: expected ${vector.expectedVariation}, received ${String(assignment.variation)}`,
+          ];
+    return {
+      name: `experiment assignment for ${vector.targetingKey}`,
+      pass: differences.length === 0,
+      differences,
+    };
+  });
+}
+
+export interface FeatureEventConformanceVector {
+  name: string;
+  input: unknown;
+  expected: FeatureEvent;
+  options?: FeatureEventParserOptions;
+}
+
+const eventBase = {
+  schemaVersion: 1,
+  source: { app: "conformance", environment: "experiment" },
+  flagKey: "checkout",
+  variation: "treatment",
+  configVersion: 11,
+  reason: "SPLIT",
+  timestamp: "2030-01-01T00:00:01.000Z",
+  subject: {
+    id: "psn_7fcc043e7fcc043e",
+    namespace: "conformance",
+    revision: 1,
+    state: "authenticated",
+  },
+  experiment: {
+    experimentId: "checkout-experiment",
+    iterationId: "checkout-iteration-1",
+  },
+} as const;
+
+export const featureEventConformanceVectors: readonly FeatureEventConformanceVector[] =
+  [
+    {
+      name: "browser decision envelope",
+      input: {
+        ...eventBase,
+        id: "evt-browser-1",
+        kind: "decision",
+        sdk: {
+          name: "@superflag-sh/react",
+          version: "1.0.0",
+          platform: "browser",
+        },
+        targetingKey: "must-not-survive",
+        clientKey: "must-not-survive",
+        value: { private: "must-not-survive" },
+      },
+      expected: {
+        ...eventBase,
+        id: "evt-browser-1",
+        kind: "decision",
+        sdk: {
+          name: "@superflag-sh/react",
+          version: "1.0.0",
+          platform: "browser",
+        },
+      },
+    },
+    {
+      name: "React Native exposure envelope",
+      input: {
+        ...eventBase,
+        id: "evt-rn-1",
+        kind: "exposure",
+        sdk: {
+          name: "@superflag-sh/react-native",
+          version: "1.0.0",
+          platform: "react-native",
+        },
+        context: { email: "must-not-survive@example.com" },
+      },
+      expected: {
+        ...eventBase,
+        id: "evt-rn-1",
+        kind: "exposure",
+        sdk: {
+          name: "@superflag-sh/react-native",
+          version: "1.0.0",
+          platform: "react-native",
+        },
+      },
+    },
+    {
+      name: "Node assignment envelope",
+      input: {
+        ...eventBase,
+        id: "evt-node-1",
+        kind: "assignment",
+        sdk: { name: "@superflag-sh/node", version: "1.0.0", platform: "node" },
+        attributes: { plan: "must-not-survive" },
+      },
+      expected: {
+        ...eventBase,
+        id: "evt-node-1",
+        kind: "assignment",
+        sdk: { name: "@superflag-sh/node", version: "1.0.0", platform: "node" },
+      },
+    },
+  ] as const;
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (typeof value === "object" && value !== null)
+    return `{${Object.entries(value)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`)
+      .join(",")}}`;
+  return JSON.stringify(value);
+}
+
+export function runFeatureEventConformanceVectors(): readonly ConformanceResult[] {
+  return featureEventConformanceVectors.map((vector) => {
+    const actual = parseFeatureEvent(vector.input, vector.options);
+    const differences =
+      canonicalJson(actual) === canonicalJson(vector.expected)
+        ? []
+        : [
+            `event: expected ${JSON.stringify(vector.expected)}, received ${JSON.stringify(actual)}`,
+          ];
+    return { name: vector.name, pass: differences.length === 0, differences };
+  });
 }
 
 /** Reusable by every SDK to prove it matches the core semantics. */

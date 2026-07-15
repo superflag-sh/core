@@ -7,6 +7,9 @@ const entrypoints = [
   "openfeature",
   "legacy",
   "conformance",
+  "events",
+  "experiments",
+  "telemetry",
 ] as const;
 
 export {};

@@ -1,6 +1,8 @@
 export { createTypedClient } from "./client.js";
 export { generateTypes } from "./codegen.js";
 export { bucket, createEvaluator, stableHash } from "./evaluator.js";
+export * from "./events.js";
+export * from "./experiments.js";
 export type {
   LegacyDefinitionOverrides,
   LegacyFlagType,
@@ -15,6 +17,7 @@ export {
   sanitizeContext,
 } from "./privacy.js";
 export { parseConfig, schema, validateConfig } from "./schema.js";
+export * from "./telemetry.js";
 export * from "./types.js";
 
 import { parseConfig } from "./schema.js";
