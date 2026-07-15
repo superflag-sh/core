@@ -1,9 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import {
+  experimentAbnConformanceConfig,
+  experimentAbnConformanceIteration,
+  experimentAssignmentConformanceVectors,
   experimentConformanceConfig,
   experimentConformanceIteration,
+  runExperimentAssignmentConformanceVectors,
   runExperimentConformanceVectors,
 } from "../src/conformance";
+import { bucket } from "../src/evaluator";
 import {
   assignExperiment,
   type Experiment,
@@ -12,6 +17,7 @@ import {
   parseExperimentIteration,
   validateExperiment,
   validateExperimentIteration,
+  validateExperimentLifecycleTransition,
   validateIterationReplacement,
 } from "../src/experiments";
 
@@ -49,6 +55,72 @@ describe("experiment contracts", () => {
       ).toBeTrue();
   });
 
+  test("enforces the explicit lifecycle transition graph", () => {
+    const allowed = new Set([
+      "draft:running",
+      "draft:archived",
+      "running:paused",
+      "running:completed",
+      "paused:running",
+      "paused:completed",
+      "completed:archived",
+    ]);
+    const lifecycles = [
+      "draft",
+      "running",
+      "paused",
+      "completed",
+      "archived",
+    ] as const;
+    for (const previous of lifecycles) {
+      for (const next of lifecycles) {
+        expect(
+          validateExperimentLifecycleTransition(previous, next).success,
+        ).toBe(allowed.has(`${previous}:${next}`));
+      }
+    }
+  });
+
+  test("rejects a metric revision reused across experiment roles", () => {
+    const duplicateMetric = { key: "checkout-completed", revision: 1 };
+    const experiment = {
+      schemaVersion: 1,
+      id: "checkout-experiment",
+      source: experimentConformanceConfig.source,
+      lifecycle: "draft",
+      hypothesis: "The new checkout increases completed orders.",
+      owner: "growth",
+      flagKey: "checkout",
+      audience: { kind: "all" },
+      assignmentUnit: { kind: "targetingKey" },
+      primaryMetric: duplicateMetric,
+      secondaryMetrics: [duplicateMetric],
+      guardrailMetrics: [duplicateMetric],
+      intendedDurationDays: 14,
+      sampleTarget: 10_000,
+    } as const satisfies Experiment;
+    const experimentResult = validateExperiment(experiment);
+    expect(experimentResult.success).toBeFalse();
+    if (!experimentResult.success) {
+      expect(experimentResult.issues.map((issue) => issue.path)).toContain(
+        "$.secondaryMetrics[0]",
+      );
+      expect(experimentResult.issues.map((issue) => issue.path)).toContain(
+        "$.guardrailMetrics[0]",
+      );
+    }
+
+    const iterationResult = validateExperimentIteration({
+      ...experimentConformanceIteration,
+      secondaryMetrics: [duplicateMetric],
+    });
+    expect(iterationResult.success).toBeFalse();
+    if (!iterationResult.success)
+      expect(iterationResult.issues.map((issue) => issue.path)).toContain(
+        "$.secondaryMetrics[0]",
+      );
+  });
+
   test("parses a recursively immutable, reproducible iteration snapshot", () => {
     const iteration = parseExperimentIteration(experimentConformanceIteration);
     expect(Object.isFrozen(iteration)).toBeTrue();
@@ -62,10 +134,22 @@ describe("experiment contracts", () => {
     });
   });
 
-  test("golden A/B/n vectors are deterministic across repeated evaluation", () => {
+  test("golden A/B and A/B/n vectors are deterministic across runtimes", () => {
     expect(
       runExperimentConformanceVectors().every((result) => result.pass),
     ).toBeTrue();
+    expect(
+      runExperimentAssignmentConformanceVectors().every(
+        (result) => result.pass,
+      ),
+    ).toBeTrue();
+    expect(
+      experimentAssignmentConformanceVectors
+        .slice(0, 6)
+        .map((vector) =>
+          bucket(`checkout:abn-v1:${String(vector.context.targetingKey)}`),
+        ),
+    ).toEqual([0, 24_999, 25_000, 59_999, 60_000, 99_999]);
     for (let index = 0; index < 100; index++) {
       const context = { targetingKey: `stable-${index}` };
       expect(
@@ -193,6 +277,71 @@ describe("experiment contracts", () => {
         ],
       }),
     ).toBeFalse();
+  });
+
+  test("safe A/B/n ramps preserve all prior assignments", () => {
+    const previous = {
+      ...experimentAbnConformanceIteration,
+      allocation: [
+        { variation: "control", weight: 20_000 },
+        { variation: "treatment", weight: 20_000 },
+        { variation: "holdout", weight: 20_000 },
+      ],
+    } as const satisfies ExperimentIteration;
+    const next = {
+      ...previous,
+      allocation: [
+        { variation: "control", weight: 20_000 },
+        { variation: "treatment", weight: 20_000 },
+        { variation: "holdout", weight: 50_000 },
+      ],
+    } as const satisfies ExperimentIteration;
+    expect(isAssignmentPreservingRamp(previous, next)).toBeTrue();
+    let newlyEligible = 0;
+    for (let index = 0; index < 10_000; index++) {
+      const context = { targetingKey: `abn-ramp-${index}` };
+      const before = assignExperiment(
+        previous,
+        experimentAbnConformanceConfig,
+        context,
+      );
+      const after = assignExperiment(
+        next,
+        experimentAbnConformanceConfig,
+        context,
+      );
+      if (before.eligible) expect(after.variation).toBe(before.variation);
+      else if (after.eligible) newlyEligible++;
+    }
+    expect(newlyEligible).toBeGreaterThan(2_700);
+    expect(newlyEligible).toBeLessThan(3_300);
+  });
+
+  test("attribute and Unicode assignment units are deterministic", () => {
+    const iteration = {
+      ...experimentAbnConformanceIteration,
+      id: "checkout-attribute-iteration-1",
+      assignmentUnit: { kind: "attribute", attribute: "account.id" },
+    } as const satisfies ExperimentIteration;
+    const first = assignExperiment(iteration, experimentAbnConformanceConfig, {
+      targetingKey: "first-subject",
+      attributes: { account: { id: "组织-🚀" } },
+    });
+    const second = assignExperiment(iteration, experimentAbnConformanceConfig, {
+      targetingKey: "different-subject",
+      attributes: { account: { id: "组织-🚀" } },
+    });
+    expect(first).toMatchObject({
+      variation: "treatment",
+      eligible: true,
+      reason: "SPLIT",
+    });
+    expect(second.variation).toBe(first.variation);
+    expect(
+      assignExperiment(iteration, experimentAbnConformanceConfig, {
+        targetingKey: "missing-attribute",
+      }),
+    ).toMatchObject({ eligible: false, reason: "SPLIT" });
   });
 
   test("started iterations allow only identity-stable assignment-preserving ramps", () => {

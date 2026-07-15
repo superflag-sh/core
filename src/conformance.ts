@@ -308,6 +308,136 @@ export function runExperimentConformanceVectors(): readonly ConformanceResult[] 
   });
 }
 
+export const experimentAbnConformanceConfig = {
+  ...experimentConformanceConfig,
+  flags: {
+    checkout: {
+      ...experimentConformanceConfig.flags.checkout,
+      description: "Canonical A/B/n assignment flag.",
+      variations: {
+        control: { value: "control" },
+        treatment: { value: "treatment" },
+        holdout: { value: "holdout" },
+      },
+    },
+  },
+} as const satisfies FlagConfig;
+
+export const experimentAbnConformanceIteration = {
+  ...experimentConformanceIteration,
+  id: "checkout-abn-iteration-1",
+  variations: ["control", "treatment", "holdout"],
+  allocation: [
+    { variation: "control", weight: 25_000 },
+    { variation: "treatment", weight: 35_000 },
+    { variation: "holdout", weight: 40_000 },
+  ],
+  salt: "abn-v1",
+} as const satisfies ExperimentIteration;
+
+export interface ExperimentAssignmentConformanceVector {
+  name: string;
+  iteration: ExperimentIteration;
+  context: EvaluationContext;
+  expected: {
+    variation?: string;
+    eligible: boolean;
+    reason: EvaluationReason;
+  };
+}
+
+const attributeExperimentIteration = {
+  ...experimentAbnConformanceIteration,
+  id: "checkout-attribute-iteration-1",
+  assignmentUnit: { kind: "attribute", attribute: "account.id" },
+} as const satisfies ExperimentIteration;
+
+export const experimentAssignmentConformanceVectors: readonly ExperimentAssignmentConformanceVector[] =
+  [
+    {
+      name: "A/B/n first bucket boundary",
+      iteration: experimentAbnConformanceIteration,
+      context: { targetingKey: "boundary-159033" },
+      expected: { variation: "control", eligible: true, reason: "SPLIT" },
+    },
+    {
+      name: "A/B/n last control bucket",
+      iteration: experimentAbnConformanceIteration,
+      context: { targetingKey: "boundary-17758" },
+      expected: { variation: "control", eligible: true, reason: "SPLIT" },
+    },
+    {
+      name: "A/B/n first treatment bucket",
+      iteration: experimentAbnConformanceIteration,
+      context: { targetingKey: "boundary-31315" },
+      expected: { variation: "treatment", eligible: true, reason: "SPLIT" },
+    },
+    {
+      name: "A/B/n last treatment bucket",
+      iteration: experimentAbnConformanceIteration,
+      context: { targetingKey: "boundary-80022" },
+      expected: { variation: "treatment", eligible: true, reason: "SPLIT" },
+    },
+    {
+      name: "A/B/n first holdout bucket",
+      iteration: experimentAbnConformanceIteration,
+      context: { targetingKey: "boundary-31597" },
+      expected: { variation: "holdout", eligible: true, reason: "SPLIT" },
+    },
+    {
+      name: "A/B/n final bucket boundary",
+      iteration: experimentAbnConformanceIteration,
+      context: { targetingKey: "boundary-11657" },
+      expected: { variation: "holdout", eligible: true, reason: "SPLIT" },
+    },
+    {
+      name: "Unicode targeting key",
+      iteration: experimentAbnConformanceIteration,
+      context: { targetingKey: "用户-🚀-é" },
+      expected: { variation: "holdout", eligible: true, reason: "SPLIT" },
+    },
+    {
+      name: "nested Unicode attribute assignment",
+      iteration: attributeExperimentIteration,
+      context: {
+        targetingKey: "subject-does-not-control-assignment",
+        attributes: { account: { id: "组织-🚀" } },
+      },
+      expected: { variation: "treatment", eligible: true, reason: "SPLIT" },
+    },
+    {
+      name: "missing assignment attribute is ineligible",
+      iteration: attributeExperimentIteration,
+      context: { targetingKey: "missing-account" },
+      expected: { eligible: false, reason: "SPLIT" },
+    },
+  ] as const;
+
+export function runExperimentAssignmentConformanceVectors(): readonly ConformanceResult[] {
+  return experimentAssignmentConformanceVectors.map((vector) => {
+    const assignment = assignExperiment(
+      vector.iteration,
+      experimentAbnConformanceConfig,
+      vector.context,
+    );
+    const differences = Object.entries(vector.expected).flatMap(
+      ([key, expected]) => {
+        const actual = assignment[key as keyof typeof assignment];
+        return actual === expected
+          ? []
+          : [
+              `${key}: expected ${String(expected)}, received ${String(actual)}`,
+            ];
+      },
+    );
+    return {
+      name: vector.name,
+      pass: differences.length === 0,
+      differences,
+    };
+  });
+}
+
 export interface FeatureEventConformanceVector {
   name: string;
   input: unknown;

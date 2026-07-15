@@ -98,6 +98,15 @@ const lifecycles = new Set<ExperimentLifecycle>([
   "completed",
   "archived",
 ]);
+const lifecycleTransitions: Readonly<
+  Record<ExperimentLifecycle, ReadonlySet<ExperimentLifecycle>>
+> = {
+  draft: new Set(["running", "archived"]),
+  running: new Set(["paused", "completed"]),
+  paused: new Set(["running", "completed"]),
+  completed: new Set(["archived"]),
+  archived: new Set(),
+};
 const ISO_INSTANT =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 const MAX_TEXT = 2_000;
@@ -200,6 +209,52 @@ function validateMetricList(
   if (new Set(keys).size !== keys.length)
     issues.push({ path, message: "must not contain duplicate revisions" });
   return true;
+}
+
+function metricRevisionIdentity(value: unknown): string | undefined {
+  if (
+    !isRecord(value) ||
+    !validName(value.key) ||
+    !Number.isSafeInteger(value.revision) ||
+    (value.revision as number) < 1
+  )
+    return undefined;
+  return `${value.key}:${value.revision}`;
+}
+
+function validateMetricRoles(
+  primary: unknown,
+  secondary: unknown,
+  guardrail: unknown,
+  issues: ValidationIssue[],
+): void {
+  const seen = new Map<string, string>();
+  const entries: Array<{ path: string; value: unknown }> = [
+    { path: "$.primaryMetric", value: primary },
+    ...(Array.isArray(secondary)
+      ? secondary.map((value, index) => ({
+          path: `$.secondaryMetrics[${index}]`,
+          value,
+        }))
+      : []),
+    ...(Array.isArray(guardrail)
+      ? guardrail.map((value, index) => ({
+          path: `$.guardrailMetrics[${index}]`,
+          value,
+        }))
+      : []),
+  ];
+  for (const entry of entries) {
+    const identity = metricRevisionIdentity(entry.value);
+    if (!identity) continue;
+    const firstPath = seen.get(identity);
+    if (firstPath) {
+      issues.push({
+        path: entry.path,
+        message: `must not duplicate the metric revision at ${firstPath}`,
+      });
+    } else seen.set(identity, entry.path);
+  }
 }
 
 function validateAssignmentUnit(
@@ -501,6 +556,12 @@ export function validateExperiment(
   validateMetric(input.primaryMetric, "$.primaryMetric", issues);
   validateMetricList(input.secondaryMetrics, "$.secondaryMetrics", issues);
   validateMetricList(input.guardrailMetrics, "$.guardrailMetrics", issues);
+  validateMetricRoles(
+    input.primaryMetric,
+    input.secondaryMetrics,
+    input.guardrailMetrics,
+    issues,
+  );
   if (
     !Number.isSafeInteger(input.intendedDurationDays) ||
     (input.intendedDurationDays as number) < 1
@@ -530,6 +591,25 @@ export function parseExperiment(input: unknown): Experiment {
       .map((issue) => `${issue.path} ${issue.message}`)
       .join("; ")}`,
   );
+}
+
+/** Validates an explicit lifecycle state change against the experiment graph. */
+export function validateExperimentLifecycleTransition(
+  previous: ExperimentLifecycle,
+  next: ExperimentLifecycle,
+): ValidationResult<ExperimentLifecycle> {
+  if (lifecycleTransitions[previous]?.has(next)) {
+    return { success: true, value: next };
+  }
+  return {
+    success: false,
+    issues: [
+      {
+        path: "$.lifecycle",
+        message: `cannot transition from ${previous} to ${next}`,
+      },
+    ],
+  };
 }
 
 export function validateExperimentIteration(
@@ -625,6 +705,12 @@ export function validateExperimentIteration(
   validateMetric(input.primaryMetric, "$.primaryMetric", issues);
   validateMetricList(input.secondaryMetrics, "$.secondaryMetrics", issues);
   validateMetricList(input.guardrailMetrics, "$.guardrailMetrics", issues);
+  validateMetricRoles(
+    input.primaryMetric,
+    input.secondaryMetrics,
+    input.guardrailMetrics,
+    issues,
+  );
   if (
     typeof input.startedAt !== "string" ||
     !ISO_INSTANT.test(input.startedAt) ||

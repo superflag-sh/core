@@ -136,6 +136,8 @@ try {
     )
     .join("\n");
   const usages = entrypoints.map((_, index) => "entry" + index).join(", ");
+  const conformanceEntry =
+    "entry" + entrypoints.indexOf("@superflag-sh/core/conformance");
   writeFileSync(
     join(fixture, "consumer.ts"),
     imports + "\nexport const entries = [" + usages + "];\n",
@@ -145,7 +147,10 @@ try {
     imports +
       "\nconst entries = [" +
       usages +
-      '];\nif (entries.some((entry) => Object.keys(entry).length === 0)) throw new Error("Runtime subpath export missing");\n',
+      '];\nif (entries.some((entry) => Object.keys(entry).length === 0)) throw new Error("Runtime subpath export missing");\n' +
+      "const experimentResults = " +
+      conformanceEntry +
+      '.runExperimentAssignmentConformanceVectors();\nif (!experimentResults.every((result) => result.pass)) throw new Error("Packed experiment conformance failed: " + JSON.stringify(experimentResults));\n',
   );
   writeFileSync(
     join(fixture, "tsconfig.nodenext.json"),
