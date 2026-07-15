@@ -175,6 +175,22 @@ try {
       include: ["consumer.ts"],
     }),
   );
+  writeFileSync(
+    join(fixture, "tsconfig.no-dom.json"),
+    JSON.stringify({
+      compilerOptions: {
+        strict: true,
+        noEmit: true,
+        skipLibCheck: false,
+        target: "ES2022",
+        lib: ["ES2022"],
+        types: [],
+        module: "ESNext",
+        moduleResolution: "Bundler",
+      },
+      include: ["consumer.ts"],
+    }),
+  );
 
   run("node", ["smoke.mjs"], fixture);
   run(
@@ -185,6 +201,11 @@ try {
   run(
     join(fixture, "node_modules", ".bin", "tsc"),
     ["-p", "tsconfig.bundler.json"],
+    fixture,
+  );
+  run(
+    join(fixture, "node_modules", ".bin", "tsc"),
+    ["-p", "tsconfig.no-dom.json"],
     fixture,
   );
 
@@ -213,7 +234,7 @@ try {
   console.log(
     "declarations: " +
       declarations.length +
-      " files, NodeNext and Bundler consumers ok without skipLibCheck",
+      " files, NodeNext, Bundler, and no-DOM consumers ok without skipLibCheck",
   );
 } finally {
   rmSync(temp, { recursive: true, force: true });

@@ -31,10 +31,25 @@ export interface TelemetryBatchResult {
   items: readonly TelemetryItemResult[];
 }
 
+/**
+ * Runtime-compatible abort contract that does not require DOM declarations.
+ * Browsers, Node, React Native, and Expo may pass their native AbortSignal.
+ */
+export interface TelemetryAbortSignal {
+  readonly aborted: boolean;
+  readonly reason?: unknown;
+  addEventListener(
+    type: "abort",
+    listener: () => void,
+    options?: { once?: boolean },
+  ): void;
+  removeEventListener(type: "abort", listener: () => void): void;
+}
+
 export interface TelemetryTransport {
   send(
     events: readonly FeatureEvent[],
-    options: { signal: AbortSignal },
+    options: { signal: TelemetryAbortSignal },
   ): Promise<TelemetryBatchResult>;
 }
 

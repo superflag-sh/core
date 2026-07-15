@@ -1,6 +1,6 @@
 {
   "name": "@superflag-sh/core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Portable, deterministic feature flag evaluation for Superflag",
   "type": "module",
   "sideEffects": false,
