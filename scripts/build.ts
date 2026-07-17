@@ -11,6 +11,7 @@ const entrypoints = [
   "experiments",
   "inspection",
   "telemetry",
+  "cache",
 ] as const;
 
 export {};

@@ -1,3 +1,5 @@
+export * from "./cache.js";
+export { type StableJsonValue, stableJsonSignature } from "./canonical.js";
 export { createTypedClient } from "./client.js";
 export { generateTypes } from "./codegen.js";
 export { bucket, createEvaluator, stableHash } from "./evaluator.js";

@@ -9,7 +9,7 @@ import { createEvaluator, defineConfig } from "@superflag-sh/core";
 
 const config = defineConfig({
   schemaVersion: 1,
-  source: { app: "checkout", environment: "production" },
+  source: { app: "checkout", environment: "prod" },
   configVersion: 42,
   flags: {
     "new-checkout": {
@@ -42,7 +42,7 @@ const result = flags.boolean(
   { targetingKey: "user_123", attributes: { plan: "pro" } },
   false,
 );
-// { value: true, configVersion: 42, source: { app: "checkout", environment: "production" },
+// { value: true, configVersion: 42, source: { app: "checkout", environment: "prod" },
 //   variation: "on", reason: "TARGETING_MATCH", ruleId: "pro-users", ... }
 ```
 
@@ -81,6 +81,12 @@ Flags and segments default to `visibility: "server"`. `projectClientConfig` incl
 
 Framework entry points are dependency-free: `@superflag-sh/core/react`, `/react-native`, `/node`, and `/cli`. The React stores expose `subscribe` and `getSnapshot` for `useSyncExternalStore`; the framework packages remain responsible for hooks and transport.
 
+Platform adapters share the runtime-neutral cache contract from
+`@superflag-sh/core` (also available as `@superflag-sh/core/cache`). It provides
+portable SHA-256 fingerprints, endpoint/key/app/environment cache scoping, and
+shared envelope validation; each adapter remains responsible for persistence,
+lifecycle, and parsing its configuration payload.
+
 ## OpenFeature
 
 ```ts
@@ -109,9 +115,9 @@ const definitions = {
   },
 } as const;
 
-const production = defineConfig({
+const prod = defineConfig({
   schemaVersion: 1,
-  source: { app: "store", environment: "production" },
+  source: { app: "store", environment: "prod" },
   configVersion: 42,
   flags: {
     checkout: {
@@ -133,7 +139,7 @@ const production = defineConfig({
 import { migrateLegacyFlags } from "@superflag-sh/core/legacy";
 
 const config = migrateLegacyFlags(legacyFlags, {
-  source: { app: "store", environment: "production" },
+  source: { app: "store", environment: "prod" },
   configVersion: 42,
   defaults: { owner: "platform", lifecycle: "active" },
 });

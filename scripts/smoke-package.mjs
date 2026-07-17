@@ -29,6 +29,7 @@ const entrypoints = [
   "@superflag-sh/core/experiments",
   "@superflag-sh/core/inspection",
   "@superflag-sh/core/telemetry",
+  "@superflag-sh/core/cache",
 ];
 
 function run(command, args, cwd = root) {
@@ -139,6 +140,7 @@ try {
   const usages = entrypoints.map((_, index) => "entry" + index).join(", ");
   const conformanceEntry =
     "entry" + entrypoints.indexOf("@superflag-sh/core/conformance");
+  const rootEntry = "entry" + entrypoints.indexOf("@superflag-sh/core");
   writeFileSync(
     join(fixture, "consumer.ts"),
     imports + "\nexport const entries = [" + usages + "];\n",
@@ -149,6 +151,8 @@ try {
       "\nconst entries = [" +
       usages +
       '];\nif (entries.some((entry) => Object.keys(entry).length === 0)) throw new Error("Runtime subpath export missing");\n' +
+      `if (typeof ${rootEntry}.createCacheScope !== "function") throw new Error("Root cache export missing");\n` +
+      `if (${rootEntry}.stableJsonSignature({ b: 2, a: 1 }) !== '{"a":1,"b":2}') throw new Error("Root stable JSON signature export missing");\n` +
       "const experimentResults = " +
       conformanceEntry +
       '.runExperimentAssignmentConformanceVectors();\nif (!experimentResults.every((result) => result.pass)) throw new Error("Packed experiment conformance failed: " + JSON.stringify(experimentResults));\n',
