@@ -44,7 +44,8 @@ jobs:
           INPUT_VERSION: ${{ inputs.version }}
         run: |
           if [[ "$EVENT_NAME" == "workflow_run" ]]; then
-            echo "version=$(node -p 'require(\"./package.json\").version')" >> "$GITHUB_OUTPUT"
+            PACKAGE_VERSION=$(node -p "require('./package.json').version")
+            echo "version=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
           else
             echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
           fi
